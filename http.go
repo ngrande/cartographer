@@ -37,6 +37,7 @@ func (h *custom_handler) ServeHTTP(writer http.ResponseWriter, req *http.Request
 }
 
 func path_handler(writer http.ResponseWriter, req *http.Request, content string) {
+	log.Printf("Serving request for: %s", req.URL.String())
 	writer.WriteHeader(http.StatusOK)
 	io.WriteString(writer, content)
 }
@@ -65,10 +66,8 @@ func map_dir(dir string, level string) map[string]handler_data {
 
 	mux := make(map[string]handler_data)
 	for _, f := range files {
-		fmt.Println("File: ", f)
 
 		if f.IsDir() {
-			fmt.Println("Advancing into dir: ")
 			next := map_dir(filepath.Join(dir, f.Name()), filepath.Join(level, f.Name()))
 			for k, v := range next {
 				mux[k] = v
@@ -104,7 +103,7 @@ func main() {
 
 	log.SetOutput(file)
 	log.SetPrefix("Server: ")
-	log.SetFlags(log.Lshortfile)
+	log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)
 
 	addr := "0.0.0.0:8080"
 	dir := resolve_path("~/cartographer")
