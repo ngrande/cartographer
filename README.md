@@ -12,8 +12,8 @@ Simple setup:
     |
     +--index.html
     +--notes/
-       |
-       +--text.md
+    |  |
+    |  +--text.md
     +--index.md
     +--pictures/
        |
