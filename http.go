@@ -12,7 +12,7 @@ import (
 	"strings"
 	"path/filepath"
 
-	"cartographer/convert"
+	"github.com/ngrande/cartographer/convert"
 )
 
 type handler_data struct {
@@ -78,6 +78,8 @@ func map_dir(dir string, level string) map[string]handler_data {
 		}
 
 		fpath := filepath.Join(dir, f.Name())
+		url := filepath.Join(level, f.Name())
+
 		fdata := ""
 		if strings.HasSuffix(f.Name(), "md") {
 			converted, err := convert.MarkdownToHTML(fpath)
@@ -102,7 +104,14 @@ func map_dir(dir string, level string) map[string]handler_data {
 			fdata = buf.String()
 		}
 
-		mux[filepath.Join(level, f.Name())] = handler_data{ content: fdata, exec: path_handler }
+		mux[url] = handler_data{ content: fdata, exec: path_handler }
+		if strings.HasPrefix(f.Name(), "index") {
+			if _, ok := mux[level]; ok {
+				log.Fatalf("Multiple index files detected for level: %s", level)
+			}
+			mux[level] = handler_data{ content: fdata, exec: path_handler }
+		}
+
 	}
 
 	return mux
@@ -123,6 +132,10 @@ func main() {
 	dir := resolve_path("~/cartographer")
 
 	mux := map_dir(dir, "/")
+	if _, ok := mux["/"]; !ok {
+		log.Fatalf("Failed to get the index file")
+	}
+
 	server := http.Server{ Addr: addr, Handler: &custom_handler{mux: mux}, }
 
 	log.Println("Starting up server on:", addr)
