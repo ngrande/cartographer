@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"strings"
 	"path/filepath"
+	"flag"
 
 	"github.com/ngrande/cartographer/convert"
 )
@@ -117,8 +118,20 @@ func map_dir(dir string, level string) map[string]handler_data {
 	return mux
 }
 
+var logdirFlag = flag.String("logdir", "~/log/", "Directory where logfile will be written to")
+var addrFlag = flag.String("addr", "0.0.0.0:8080", "Address to listen to(ip:port)")
+var dirFlag  = flag.String("dir", "~/cartographer", "root directory which to serve")
+
 func main() {
-	file, err := os.OpenFile("log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	flag.Parse()
+
+	logdir := resolve_path(*logdirFlag)
+	if err := os.MkdirAll(logdir, os.ModePerm); err != nil {
+		log.Fatalf("Failed to create logfile directory!")
+	}
+
+	logfile := filepath.Join(logdir, "cartographer.log")
+	file, err := os.OpenFile(logfile, os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("Failed opening file: %v", err)
 	}
@@ -128,8 +141,11 @@ func main() {
 	log.SetPrefix("Server: ")
 	log.SetFlags(log.Lshortfile | log.Ldate | log.Ltime)
 
-	addr := "0.0.0.0:8080"
-	dir := resolve_path("~/cartographer")
+	dir := resolve_path(*dirFlag)
+	addr := *addrFlag
+
+	log.Printf("Address: %s", addr)
+	log.Printf("Directory: %s", dir)
 
 	mux := map_dir(dir, "/")
 	if _, ok := mux["/"]; !ok {
@@ -138,8 +154,8 @@ func main() {
 
 	server := http.Server{ Addr: addr, Handler: &custom_handler{mux: mux}, }
 
-	log.Println("Starting up server on:", addr)
-	log.Println("Cartographer directory:", dir)
-
-	server.ListenAndServe()
+	err = server.ListenAndServe()
+	if err != nil {
+		log.Fatalf("Failed to listen and serve like a good boi: %v", err)
+	}
 }
