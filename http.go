@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strings"
 	"path/filepath"
+
+	"cartographer/convert"
 )
 
 type handler_data struct {
@@ -76,19 +78,31 @@ func map_dir(dir string, level string) map[string]handler_data {
 		}
 
 		fpath := filepath.Join(dir, f.Name())
-		file, err := os.Open(fpath)
-		if err != nil {
-			log.Fatalf("Failed reading file '%s': %v", fpath, err)
-		}
-		defer file.Close()
+		fdata := ""
+		if strings.HasSuffix(f.Name(), "md") {
+			converted, err := convert.MarkdownToHTML(fpath)
+			if err != nil {
+				log.Fatalf("Failed converting markdown to html for file '%s': %v", fpath, err)
+			}
 
-		scanner := bufio.NewScanner(file)
-		var buf strings.Builder
-		for scanner.Scan() {
-			buf.WriteString(scanner.Text() + "\n")
+			fdata = converted
+		} else {
+			file, err := os.Open(fpath)
+			if err != nil {
+				log.Fatalf("Failed reading file '%s': %v", fpath, err)
+			}
+			defer file.Close()
+
+			scanner := bufio.NewScanner(file)
+			var buf strings.Builder
+			for scanner.Scan() {
+				buf.WriteString(scanner.Text() + "\n")
+			}
+
+			fdata = buf.String()
 		}
 
-		mux[filepath.Join(level, f.Name())] = handler_data{ content: buf.String(), exec: path_handler }
+		mux[filepath.Join(level, f.Name())] = handler_data{ content: fdata, exec: path_handler }
 	}
 
 	return mux
