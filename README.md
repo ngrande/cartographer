@@ -23,3 +23,11 @@ Simple setup:
 Cartographer will serve everything as it is with ~/base as its root.
 So you reach ~/base/index.html by going to http://localhost:8080/index.html
 Or call localhost:8080/pictures/sandword.jpg to get a nice picture!
+
+---
+
+# Future features (FF)
+A list of planned features to implement, which will hopefully be implemented:
+
++ template engine
++ auto-generated navigation bar
