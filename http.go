@@ -60,6 +60,12 @@ func resolve_path(path string) string {
 	}
 }
 
+func log_mapping(mapping map[string]handler_data) {
+	for k, _ := range mapping {
+		log.Printf("[%s]", k)
+	}
+}
+
 func map_dir(dir string, level string) map[string]handler_data {
 
 	files, err := ioutil.ReadDir(dir)
@@ -111,6 +117,7 @@ func map_dir(dir string, level string) map[string]handler_data {
 				log.Fatalf("Multiple index files detected for level: %s", level)
 			}
 			mux[level] = handler_data{ content: fdata, exec: path_handler }
+			mux[level + "/"] = handler_data{ content: fdata, exec: path_handler }
 		}
 
 	}
@@ -148,6 +155,7 @@ func main() {
 	log.Printf("Directory: %s", dir)
 
 	mux := map_dir(dir, "/")
+	log_mapping(mux)
 	if _, ok := mux["/"]; !ok {
 		log.Fatalf("Failed to get the index file")
 	}
