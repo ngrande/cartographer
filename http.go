@@ -14,6 +14,7 @@ import (
 	"flag"
 
 	"github.com/ngrande/cartographer/convert"
+	"github.com/ngrande/cartographer/template"
 )
 
 type handler_data struct {
@@ -128,6 +129,7 @@ func map_dir(dir string, level string) map[string]handler_data {
 var logdirFlag = flag.String("logdir", "~/log/", "Directory where logfile will be written to")
 var addrFlag = flag.String("addr", "0.0.0.0:8080", "Address to listen to(ip:port)")
 var dirFlag  = flag.String("dir", "~/cartographer", "root directory which to serve")
+var template_dirFlag  = flag.String("template_dir", "~/cartographer_templates", "Directory containing the template files")
 
 func main() {
 	flag.Parse()
@@ -150,9 +152,17 @@ func main() {
 
 	dir := resolve_path(*dirFlag)
 	addr := *addrFlag
+	tdir := resolve_path(*template_dirFlag)
 
 	log.Printf("Address: %s", addr)
 	log.Printf("Directory: %s", dir)
+	log.Printf("Templates Dir: %s", tdir)
+
+	templates_map, err := template.ReadTemplateDir(tdir, '$', '$')
+	if err != nil {
+		log.Fatalf("Failed reading templates from dir '%s': %v", tdir, err)
+	}
+	log.Println(templates_map)
 
 	mux := map_dir(dir, "/")
 	log_mapping(mux)
