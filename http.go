@@ -67,7 +67,7 @@ func log_mapping(mapping map[string]handler_data) {
 	}
 }
 
-func map_dir(dir string, level string) map[string]handler_data {
+func map_dir(dir string, level string, templates_map map[string]template.TemplateEntry) map[string]handler_data {
 
 	files, err := ioutil.ReadDir(dir)
 	if err != nil {
@@ -78,7 +78,7 @@ func map_dir(dir string, level string) map[string]handler_data {
 	for _, f := range files {
 
 		if f.IsDir() {
-			next := map_dir(filepath.Join(dir, f.Name()), filepath.Join(level, f.Name()))
+			next := map_dir(filepath.Join(dir, f.Name()), filepath.Join(level, f.Name()), templates_map)
 			for k, v := range next {
 				mux[k] = v
 			}
@@ -89,7 +89,7 @@ func map_dir(dir string, level string) map[string]handler_data {
 		url := filepath.Join(level, f.Name())
 
 		fdata := ""
-		if strings.HasSuffix(f.Name(), "md") {
+		if strings.HasSuffix(f.Name(), ".md") {
 			converted, err := convert.MarkdownToHTML(fpath)
 			if err != nil {
 				log.Fatalf("Failed converting markdown to html for file '%s': %v", fpath, err)
@@ -112,13 +112,15 @@ func map_dir(dir string, level string) map[string]handler_data {
 			fdata = buf.String()
 		}
 
-		mux[url] = handler_data{ content: fdata, exec: path_handler }
+		res_url, res_cont, _ := template.ReplaceWithTemplate(url, fdata, templates_map)
+		mux[res_url] = handler_data{ content: res_cont, exec: path_handler }
 		if strings.HasPrefix(f.Name(), "index") {
 			if _, ok := mux[level]; ok {
 				log.Fatalf("Multiple index files detected for level: %s", level)
 			}
-			mux[level] = handler_data{ content: fdata, exec: path_handler }
-			mux[level + "/"] = handler_data{ content: fdata, exec: path_handler }
+			// instead of dupliacte data -> store a pointer to the origin?
+			mux[level] = handler_data{ content: res_cont, exec: path_handler }
+			mux[level + "/"] = handler_data{ content: res_cont, exec: path_handler }
 		}
 
 	}
@@ -158,13 +160,14 @@ func main() {
 	log.Printf("Directory: %s", dir)
 	log.Printf("Templates Dir: %s", tdir)
 
-	templates_map, err := template.ReadTemplateDir(tdir, '$', '$')
+	templates_map, err := template.ReadTemplateDir(tdir, '$')
 	if err != nil {
 		log.Fatalf("Failed reading templates from dir '%s': %v", tdir, err)
 	}
 	log.Println(templates_map)
 
-	mux := map_dir(dir, "/")
+	mux := map_dir(dir, "/", templates_map)
+
 	log_mapping(mux)
 	if _, ok := mux["/"]; !ok {
 		log.Fatalf("Failed to get the index file")
