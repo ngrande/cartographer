@@ -25,7 +25,7 @@ type TemplateEntry struct {
 // this file will be saved / read as index.html
 
 
-func ReplaceWithTemplate(name string, content string, templates_map map[string]TemplateEntry) (string, string, bool) {
+func ReplaceWithTemplate(name string, content string, templates_map map[string]TemplateEntry) (string, []byte, bool) {
 
 	for k, v := range templates_map {
 		if !strings.HasSuffix(name, k) {
@@ -57,10 +57,10 @@ func ReplaceWithTemplate(name string, content string, templates_map map[string]T
 		}
 
 		// done
-		return name_res, content_res, true
+		return name_res, []byte(content_res), true
 	}
 
-	return name, content, false
+	return name, []byte(content), false
 }
 
 func ReadTemplateDir(dir string, sep rune) (map[string]TemplateEntry, error) {

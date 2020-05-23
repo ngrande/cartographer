@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"io/ioutil"
 	"bufio"
 	"net/http"
@@ -12,14 +11,16 @@ import (
 	"strings"
 	"path/filepath"
 	"flag"
+	"mime"
+	"regexp"
 
 	"github.com/ngrande/cartographer/convert"
 	"github.com/ngrande/cartographer/template"
 )
 
 type handler_data struct {
-		content string
-		exec func(http.ResponseWriter, *http.Request, string)
+		content []byte
+		exec func(http.ResponseWriter, *http.Request, []byte)
 }
 
 type custom_handler struct {
@@ -40,10 +41,15 @@ func (h *custom_handler) ServeHTTP(writer http.ResponseWriter, req *http.Request
 	h.errorHandler(writer, req, http.StatusNotFound)
 }
 
-func path_handler(writer http.ResponseWriter, req *http.Request, content string) {
+func path_handler(writer http.ResponseWriter, req *http.Request, content []byte) {
 	log.Printf("Serving request for: %s", req.URL.String())
+
+	ext := filepath.Ext(req.URL.String())
+	writer.Header().Set("Content-Type", mime.TypeByExtension(ext))
+
 	writer.WriteHeader(http.StatusOK)
-	io.WriteString(writer, content)
+
+	writer.Write(content)
 }
 
 func resolve_path(path string) string {
@@ -87,40 +93,53 @@ func map_dir(dir string, level string, templates_map map[string]template.Templat
 
 		fpath := filepath.Join(dir, f.Name())
 		url := filepath.Join(level, f.Name())
+		ext := filepath.Ext(url) 
 
-		fdata := ""
+		// limit to 10MiB
+		fdata := make([]byte, 1024 * 1024 * 10)
 		if strings.HasSuffix(f.Name(), ".md") {
 			converted, err := convert.MarkdownToHTML(fpath)
 			if err != nil {
 				log.Fatalf("Failed converting markdown to html for file '%s': %v", fpath, err)
 			}
 
-			fdata = converted
+			fdata = []byte(converted)
 		} else {
-			file, err := os.Open(fpath)
-			if err != nil {
-				log.Fatalf("Failed reading file '%s': %v", fpath, err)
-			}
-			defer file.Close()
+			log.Printf("File '%s' as ext '%s'", fpath, ext)
+			matched, err := regexp.MatchString(`.(jpg|jpeg|png|gif)`, ext) 
+			if matched == false {
+				file, err := os.Open(fpath)
+				if err != nil {
+					log.Fatalf("Failed reading file '%s': %v", fpath, err)
+				}
+				defer file.Close()
 
-			scanner := bufio.NewScanner(file)
-			var buf strings.Builder
-			for scanner.Scan() {
-				buf.WriteString(scanner.Text() + "\n")
-			}
+				scanner := bufio.NewScanner(file)
+				var buf strings.Builder
+				for scanner.Scan() {
+					buf.WriteString(scanner.Text() + "\n")
+				}
 
-			fdata = buf.String()
+				url, fdata, _ = template.ReplaceWithTemplate(url, buf.String(), templates_map)
+			} else {
+
+				log.Printf("Loading '%s' as non-text file", fpath)
+
+				fdata, err = ioutil.ReadFile(fpath)
+				if err != nil {
+					log.Fatalf("Failed reading the complete file '%s': %v", fpath, err)
+				}
+			}
 		}
 
-		res_url, res_cont, _ := template.ReplaceWithTemplate(url, fdata, templates_map)
-		mux[res_url] = handler_data{ content: res_cont, exec: path_handler }
+		mux[url] = handler_data{ content: fdata, exec: path_handler }
 		if strings.HasPrefix(f.Name(), "index") {
 			if _, ok := mux[level]; ok {
 				log.Fatalf("Multiple index files detected for level: %s", level)
 			}
 			// instead of dupliacte data -> store a pointer to the origin?
-			mux[level] = handler_data{ content: res_cont, exec: path_handler }
-			mux[level + "/"] = handler_data{ content: res_cont, exec: path_handler }
+			mux[level] = handler_data{ content: fdata, exec: path_handler }
+			mux[level + "/"] = handler_data{ content: fdata, exec: path_handler }
 		}
 
 	}
