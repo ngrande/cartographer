@@ -45,6 +45,11 @@ func path_handler(writer http.ResponseWriter, req *http.Request, content []byte)
 	log.Printf("Serving request for: %s", req.URL.String())
 
 	ext := filepath.Ext(req.URL.String())
+	if ext == ".md" {
+		// .md is autom. converted to a html but with .md extension still there
+		ext = ".html"
+	}
+	log.Printf("Serving MIME as '%s'", mime.TypeByExtension(ext))
 	writer.Header().Set("Content-Type", mime.TypeByExtension(ext))
 
 	writer.WriteHeader(http.StatusOK)
